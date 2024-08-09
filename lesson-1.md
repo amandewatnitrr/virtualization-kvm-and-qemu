@@ -37,7 +37,7 @@
     - It is only available on Linux Host.
     - QEMU runs a single process or program, not a whole OS.
 
-# Virtualization with KVM
+## Virtualization with KVM
 
 - KVM is a feature of the Linux Kernel that enables a linux system to act as a type 1 hypervisor to run virtual machines.
 - This feature allows virtual machines direct access to host's processor instead of relying on an emulated processor, providing native performance without the overhead of emulation.
