@@ -10,7 +10,7 @@
   - Processors and CPU
   - Others
 
-![](./imgs/Screenshot%202024-08-09%20at%202.24.01 PM.png)
+  ![](./imgs/Screenshot%202024-08-09%20at%202.24.01 PM.png)
 
 - QEMU can emulate a huge variety of X86_64 processors models old and new.
 - We can allow or block specific CPU features to the guest VMs.
@@ -78,4 +78,83 @@
 
 - In most cases, `paravirtualization` is faster than `full virtualization`, because the guest OS can communicate directly with the host, instead of going through an emulated device.
 
-- 
+## Using QEMU & KVM
+
+- KVM provides access to the host's CPU and Memory, and QEMU provides the emulated devices that the guest OS needs to operate with paravirtualization.
+
+- But using KVM also means that we can only run guest OS that are compatible with the host's CPU architecture.
+
+- We need to install some tool to use QEMU on linux, and these tools will come from a distribution repository. To view the list use the command:
+  
+    ```shell
+    apt list qemu*
+    ```
+
+- We will install the `qemu-kvm` package, which is a meta package that installs all the necessary tools to use QEMU with KVM.
+
+  ```shell
+  sudo apt install qemu-kvm
+  ```
+
+- Once installed type `qmeu-` and press `tab` to see the list of available commands with matching prefix.
+
+  ![](./imgs/Screenshot%202024-08-09%20at%2010.58.32 PM.png)
+
+  - Let's explore some of these commands:
+
+    - `qemu-img` is a tool to creating and working with disk images.
+
+      - It can be used to create disk images of various formats.
+      - It can be used to convert disk images from one format to another.
+      - It can be used to resize disk images.
+      - It can be used to inspect disk images.
+
+    - `qemu-io` is another utility for working with disks.
+
+      - It can be used to test disk performance.
+      - It can be used to perform disk operations like read, write, flush, etc.
+
+    - `qemu-nbd` is for working with Network Block Storage.
+
+      - Network Block Storage is a way to access remote storage over a network.
+      - It can be used to mount remote disk images on the local system.
+      - It can be used to create a network block device.
+      - It can be used to export a local disk image over the network.
+
+    - `qemu-system-XXXX` where XXXX represents the architecture of the guest OS, are the commands use to emulate a specific processor type.
+
+      - For example, `qemu-system-x86_64` is used to emulate an X86_64 processor.
+      - `qemu-system-arm` is used to emulate an ARM processor.
+      - `qemu-system-spice` is used to emulate a spice processor.
+      - When using these commands, we can pass options to specify the guest OS, the amount of memory, the number of CPUs, the disk image, and more.
+      - We also need to kepp a note in mind that these commands can be extremly long and fairly complex, and they are not something we'll usually type out from beginning to end.
+      - Planning these commands take time, and often suggested to be composed in a note document to make sure we have all the things we need.
+      - Then we must assemble the parts into a long command string, that we can copy and paste into the terminal.
+      - It's also recommended to use shell line continuation character `\` to break the command into multiple lines for better readability.
+      - Example:
+
+        ```shell
+          qemu-system-x86_64 \
+          -m 512M \
+          -hda /path/to/disk.img \
+          -cdrom /path/to/iso \
+          -boot d
+        ```
+
+      - The order of the options doesn't really matter, but it's a good idea to keep them in a logical order for easier reading in an inside outward order.
+
+## Exploring QEMU Documentation
+
+- QEMU has a lot of options and features, and it can be overwhelming to try and learn them all at once.
+
+- The best way to learn is to start with the basics and then explore the documentation as needed. You can access the QEMU documentation by running:
+
+  ```shell
+  man qemu
+  ```
+
+  - It starts with listing what type of peripherals and devices QEMU can emulate. And, than comes the long list of options that we can use with any of the QEMU system binaries.
+
+  - If you want to search anything in the documentation, you can use the `/search_term` key to search for the `search_term`.
+
+  - You can find the same information on the <a href="https://www.qemu.org/docs/master/system/index.html"> website</a>, under the `invocation` section.
