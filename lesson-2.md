@@ -37,7 +37,7 @@
 - Example:
   
   ```shell
-  qemu-img create 0f qcow2 mydisk.qcow2 50G
+  qemu-img create -f qcow2 mydisk.qcow2 50G
   # We have a disk image thats ready to act like a 50GB hard drive for my guest
   # It will grow in size on the host as files are added.
   ```
