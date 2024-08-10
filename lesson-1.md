@@ -157,4 +157,98 @@
 
   - If you want to search anything in the documentation, you can use the `/search_term` key to search for the `search_term`.
 
-  - You can find the same information on the <a href="https://www.qemu.org/docs/master/system/index.html"> website</a>, under the `invocation` section.
+  - You can find the same information on the <a href="https://www.qemu.org/docs/master/system/index.html">`website`</a>, under the `invocation` section.
+
+## Planning a Virtualization Soution
+
+- Planning is an important part of setting up a virtualization solution regardless of the size of your virtual machine deployement.
+
+- We need to plan out what resources our virtual machine will have. This includes:
+
+  - The amount of memory the VM will have.
+  - The number of CPUs the VM will have.
+  - The amount of disk space the VM will have.
+  - The type of disk image the VM will use.
+  - The type of network connection the VM will have.
+  - The type of devices the VM will have.
+  - Emulated Hardware like Video and Network Adapters.
+
+- A QEMU lab can quickly take up a lot of space as we work with Operating System installers and disk images that guests run from.
+
+- And, if we use features like snapshot, space can be consumed more easily than we might expect.
+
+- While we are learning, we can store disk images pretty much anywhere, but if we are a deploying a lab or a production solution.
+
+- We'll want to organized these images carefully on dedicated storage and make sure that we have a responsible backup plan in case of a problem. 
+
+- SSDs are a good medium for image storage but they can get expensive if the capacity needs to be large.
+
+- Spinning or Magnetic Disks are a good alternative for storing disk images, but they are slower than SSDs.
+
+- Various tools in the QEMU system will allow us to backup the image files via snapshots or other means.
+
+- Guests will all compete for memory on host, so it's important to think about how much RAM each guest will need, and how to reserve for host's own operations.
+
+- When we allocate memory to a guest, that memory isn't all take my the guest at once. The guest only takes what it needs at any given time.
+
+- So, we can have 2 guests running on a host with 8GB RAM, and provide them each 8 GB of RAM.
+
+- As long as the guest and the host don't do anything memory-intensive, QEMU will handle this situation just fine.
+
+- But, if the machine starts competing for that over-provisoned memory, both the guests and the host will suffer in performance.
+
+- So, it's usually best to better think of part of the host's overall  memory as being available to allocate the guests.
+
+- At least a few gigabytes of memory for the host, outside of what's allocated to the guests.
+
+- We also need to determine what processor model and, how many processor cores a guest should have.
+
+- QEMU provides emulated hardware that can be the same regardless of which host a guest is running on.
+
+- The proessor however might vary b/w different virtualization hosts, and so instead of using a direct pass-thorugh to whatever model processor a particular host has, whih is common practice on a single machine or in a lab, we may need to choose an emulated processor model, that will allow guests to have same CPU across a fleet of hosts.
+
+- But, if we have 2 or more hosts with different CPU models, and plan to run guests in a way where they could start on any machine in the cluster.
+
+- A very basic Linux Guest with no desktop environement like a clean install of Alpine Linux may only need 1 GB RAM and 1 CPU core.
+
+- But, a desktop distribution or another more general purpose OS like windows will need more space for disk image certainly will need more RAM, probably 4 GB RAM at minimum, and will benifit from having 2 or more core processors.
+
+- And depending on the role of the guest, will decide which hardware it has, what its network topology is and, whether it needs additional devices connected, either emulated ones or real hardware from the host.
+
+- All these resources need to be planned, and tuned to what's appropriate. Guests will widely vary depending on what they need to do.
+
+- We also need to decide on how we will be acdessing the guest, we can connect to the guest and, send it mouse and keyboard input either through a local window or through VNC across the network.
+
+- And, as we configure our guest, we might choose to establish other kinds of remote access, such as SSH.
+
+- Luckily, we can change all of the guest's parameter except for the target architecture, after we create the guest.
+
+- If we find we have underestimated or overestimated what a guest actually needs.
+
+- It's useful to think of QEMU guests as having 2 primary parts, the disk image from which they run, and the configuration that determines the virtual hardware and configuration of the guest system.
+
+- The configuration of a machine can be defined at the command line, and can also be stored in files in various ways to be managed manually or through Guest Management Solutions like virsh and Virt-Manager.
+
+- And, for larger deployments we can use orchestration tools to mange the configuration and,deployment of guests across a series of host systems.
+
+- The QEMU default emulated hardware is usually a responsible starting point for guests unless we have other specific needs or optimizations to make.
+
+- linux generally have a good support for these devices, as mentioned earlier, and some other OS do as well, though if we make changes to the defaults we will need to consider whether a guest needs drivers to  support those different devices.
+
+- In a lab we can virtualizae pretty much any system we might want to, but in a production deplyment, there are roles that we don't want to virtualize.
+
+  - For example, we shouldn't have all of our core infrastructure virtualised, specially things like Primary Domain Controllers, Core Routing, or Primary DNS.
+
+  - If our virtualization solution goes down for some reason, this can create a circular problem for getting our network back up and running.
+
+  - It's also improtant to consider licensing when we are creating guest systems.
+
+  - While Operating Systems like Linux and FreeBSD don't require per-system licenses, other OS like Windows do.
+
+  - Just because a system is running in a virtualizaed environment doesn't mean we don't have to pay for the license.
+
+  - And, sometimes running a guest on a non-vendor approved hardware can violate OS Licenses.
+  
+- Sometimes,  we will virtualize systems to take better advantage of hardware resources, and in many cases managing system easier and save on costs, and sometimes for resiliency and recoverability.
+
+- Having virtual machines to be started up quickly on a new hardware, if a host system is having problems is a lot easier than re-building a bare metal server.
