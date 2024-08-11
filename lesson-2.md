@@ -466,3 +466,52 @@
 - `1024*768` or any lower resolution is a safe starting point, and we can increase it from there.
 
 - The display type and adapter we you will use will be determined by what the guest is intended to do.
+
+## Sharing files b/w Guest and Host
+
+- QEMU allows us to create virtual file systems accessible to guests.
+- One of there Virtual File System is called `9p` or `Plan 9 File System Protocol`, for file sharing b/w guests and host.
+- It allows us to represent folder on the host as a mountable file system in the guest.
+- This allows the host and one or more guests to share files, stored on a folder on the host.
+- Within, each guest we'll mount the shared storage in the same way we'd mount any other file system, either manually or in our `fstab` file i.e. FS Table, and than the files are available.
+- This saves us from having to setup another service like SMB or NFS share within our virtual netowork to share common data amongst our systems.
+- This give the host direct access to the shared data for administrative purposes too.
+- To use the `9p` file system, we need to specify the shared folder on the host, and the mount point in the guest, we will start with `virtfs` option and provide it with few parameters.
+  
+  ```shell
+    > mkdir shared
+    > echo "Hello from the Host!!! " > shared/hello.txt
+    > qemu-system-x86_64 \
+        -enable-kvm \
+        -cpu host \
+        -smp 4 \
+        -m 8G \
+        -display
+        -k en-us \
+        -usbdevice tablet \
+        -drive file=disk_name.qcow2,if=virtio \
+        -monitor stdio \
+        -virtfs local, path=/path/to/shared/folder, mount_tag=shared,security_model=mapped
+  ```
+
+    On the guest:
+    ```shell
+    > mkdir shared
+    > sudo mount -t 9p -o trans=virtio shared /path/to/shared/folder -o version=9p2000.L
+    ```
+
+    And, now we can move to the mount point.
+
+  Let's start breaking it down one by one:
+
+  - Let's start with the file system driver `local`, and while there are other options available, those aren't really for anything other than testing or debugging. So, we'll use local.
+  - The `path` is the folder on the host that we want to share with the guest.
+  - The `mount_tag` here provides the name we'll reference this file system by in the guest.
+  - `security_model` set to `mapped` means the QEMU will store ownership metadata from inside the guest as custom extended attributes.
+
+    - The option named `mapped` is short form for `mapped xattr`.
+
+  - On the host, the files created within guests will be owned by the user account used to run the guest. So, if we invoke QEMU system as a regular user that user will own the files on the host, and if we use superuser previlages, the files will be owned by the root on the host, but within the guests, the files will maintain whatever local ownership is set there.
+
+- This built in `9p` file system gives us an easy way of creating a shared folder accessible by the host and one or more guests. Linux has support for this already built-in and other OS may need to have support added through third party drivers.
+
