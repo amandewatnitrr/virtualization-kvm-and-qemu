@@ -288,3 +288,96 @@
 - `system_powerdown` is a command that we can use to shut down the guest, and it's the same as pressing the power button on a physical computer. It sends ACPI power down signal instead of just ending it's process, and terminating it abrutly.
 
 - The Monitor is pretty useful specially when customizing guest's configuration because it often saves me the time of finding a VNC Window, and powering off the guest to change a configuration option.
+
+## Managing and Modifying Disk Images
+
+- One useful way of using disk images with guest involve overlays.
+- An Overlay is where we start with one disk image, that we call backing image, and lay another disk image on top of it.
+- So, any changes made to the guest filesystsem are stored in that overlay file, and not in the orignal backing image.
+
+    ![](./imgs/Screenshot%202024-08-11%20at%207.19.37 PM.png)
+
+- To use an overlay, we would point the guest to the overlay instead of the orignal.
+- Creating an Overlay looks like this:
+
+    ```bash
+    qemu-img create -o backing_file=filename.qcow2,backing_fmt=qcow2 -f overlay.qcow2
+    ```
+
+- Overlay makes it easy to rollback to a known orignal state quickly by creating a new overlay with the orignal backing image.
+- It allows us to use 1 copy of a disk image with a base OS or pre-configured template installed as backing store for more than 1 guest, saving disk space on the host.
+- If we have multiple, similar or  identical guests running at the same time. Each guest boots from a combination of the same immutable image, and whatever other changes have been applied in the overlay, and there individual changes are each stored in their own overlay file.
+
+- However, this arrangement can get a bit messy, if we plan to frequently update our guest's OS.
+- The Orignal Image will stay unchanged and, the other changes will exist on the overlay and, after a few OS upgrades, we will loose the benefit of having this space efficient overlay setup.
+- So, consider using overlays if you need templated systems that won't change much, and generate new base images with any large updates.
+- We might also consider using an overlay when we are experimenting and getting things just right, and than condense it into aunified image for regular use.
+- If we copy our disk images somewhere else, we will need to copy both the backing image and the appropriate overlay. And, will need to update the overlay with the path to the backing image on the new host, if the backing image is at a different path.
+
+    We would do this with the option `rebase -b /path/tobacking_image overlay .qcow2`.
+
+    But, again we don't need to do that right now. It's also useful to use `qemu-img` with the `info` option to see what's going on with a disk image.
+
+    ```shell
+    qemu-img info disk_name.qcow2
+    ```
+
+    And, if I am working with an overlay, I can see the overlays backing image.
+
+- While a disk image has a specific maximum capcity that we define, disk images can be resized later. We can do so using the `resize` option.
+
+    ```shell
+    qemu-img resize +100G disk_name.qcow2
+    # This adds 100GB to the disk image to the existing size.
+    # +100 Adds 100 more to the existing
+    # 100 would resize it to 100GB
+    ```
+
+    This will resize the disk image by adding 100GB to the existing memory, and the disk image will grow in size on the host as files are added to the guest.
+
+    We need tools within the guest to resize our partitions and  file systems to use the new space.
+
+    If we reduce the size of an image, we'll need to start out with resizing file systems and partitions and than resize the image. Again, we can specify a fixed size or use minus sign in an amount to reduce disk capacity that way.
+
+    Disk Operations can put data at risk, so it's a good idea to have a backup of our guest files or, better keep a duplicate copy of disk image file, we're working with just in case.
+
+- The `qemu-img` utility is a powerful tool and provides many more features. `qemu` provides a tool that allows us to mount guest disk images should we need to do that for maintainence or data recovery purposes.
+
+- The `qemu-nbd` utility attaches a disk image to our host as a network block device, and than we can mount it as we would any other network storage device and read and write it, depending on the file system within it.
+
+    But, for this we need to make sure that the Network Kernel Module is loaded with modprobe `nbd`. For this we can use the command:
+
+    ```shell
+    sudo modprobe nbd
+    ```
+
+    and, we will use `qemu-nbd` to attach the disk image to the first entry for Network Block Devices. If we need to work with more than one at a time, we can mount images on subsequent devices, nbd1, nbd2 and so on.
+
+    ```shell 
+    sudo qemu-nbd --connect=/dev/nbd0 /path/to/disk_imgs/disk_name.qcow2
+    lsblk -f /dev/nbd*
+    ```
+
+    `lsblk -f` will show us the block devices on the system, and we can see the disk image mounted as a network block device in our file systems.
+
+    ![](./imgs/Screenshot%202024-08-11%20at%208.53.52 PM.png)
+
+    On `nbd03`, we can see there's an `ext4` partition. That's our guest root file system. We'll create a space for partition to be mounted with the following command:
+
+    ```shell
+    sudo mkdir /mnt/my_disk_name
+    ```
+
+    and mount it with the command:
+
+    ```shell
+    sudo mount /dev/nbd0p3 /mnt/my_disk_name
+    ```
+
+    Now, we can explore the filesystem, and work with it the same way We would be working with any other disk. And, than when I am done using that resource, I'll unmount it from my file system with command:
+
+    ```shell
+    sudo umount /mnt/my_disk_name
+    # We also need to use qemu-nbd and detach the disk image from the device that we created for it.
+    ```
+
