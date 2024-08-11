@@ -120,7 +120,7 @@
     - Not all systems require this, but if you're connecting from a Mac or from certain other clients, it helps avoid bugs.
     - This is useful for making sure that the guest has the right keyboard layout for the user.
 
-  - `vnc: `
+  - `vnc:`
 
     - provides a way for us to see the screen of the guest system, if we are working on a host across the network.
     - VNC stands for `Virtual Network Computing` and is a way to see the screen of a remote system.
@@ -353,7 +353,7 @@
 
     and, we will use `qemu-nbd` to attach the disk image to the first entry for Network Block Devices. If we need to work with more than one at a time, we can mount images on subsequent devices, nbd1, nbd2 and so on.
 
-    ```shell 
+    ```shell
     sudo qemu-nbd --connect=/dev/nbd0 /path/to/disk_imgs/disk_name.qcow2
     lsblk -f /dev/nbd*
     ```
@@ -379,5 +379,90 @@
     ```shell
     sudo umount /mnt/my_disk_name
     # We also need to use qemu-nbd and detach the disk image from the device that we created for it.
+    sudo qemu-nbd -d /dev/nbd0
     ```
 
+## Guest Graphics and Display Options
+
+- Our guest has been configured, so we can view it screened though VNC on any stream attached to our host's network.
+- But, VNC is a little bit limiting when it comes to image quality and responsiveness,especially on a slow or busy network.
+- If our QEMU host has a desktop interface, we can use the guest locally inside a desktop window, instead of through VNC.
+- The QEMU software will open up it's own window to show the guest. This means we don't need to use VNC Software, or even rely  on the network, to view and use our guest.
+- It also means we can get much better video performance out of our VM.
+- In many ways, it can behave almost as well as a native system.
+- To change the way that QEMU displays the guest, we will use the `-display` option, and we will often combine that with the `-vga` option, which allows us to set which emulated or paravirtualized video device the guest will have.
+- `-display` determines where we see the guest's screen, and we think of that as the actual display or monitor, and `-vga` determines what kind of video adapter is used, that's like the guest's video card.
+- By default, without any options defining the display or the video adapter, the guest on the linux host will start up a GTK or GNOME toolkit window, and a standard VGA Adapter.
+- We've specified VNC in our intial setup here, and that's a shortcut for display VNC.
+- Example:
+
+    ```shell
+    qemu-system-x86_64 \
+    -enable-kvm \
+    -cpu host \
+    -smp 4 \
+    -m 8G \
+    -display gtk \
+    -k en-us \
+    -usbdevice tablet \
+    -drive file=disk_name.qcow2,if=virtio \
+    -monitor stdio
+    ```
+
+    <code> We will remove the `-vnc` option here from our previous example, that we reffered to.</code>
+
+- We can use one type of display at a time. The choices we have available for the display option include GTK, SDL, VNC, curses and none.
+
+  - `none` attaches no display to the VM, while that might sound odd, we will still be able to connect to the guest via the network, if we have that setup, and we can control the guest machine from the QEMU monitor.
+
+  - Many servers and other types of guests won't need a display duing normal operation.
+  
+  - `curses` option presents the guest as a text interface, which is suitbale for text console based guests, but not for those running a GUI.
+
+  - `vnc` option is what we used in the previous example, and it's a good choice for remote access to the guest, and it's the most common choice for GUI based guests.
+
+  - `sdl` stands for `Simple DirectMedia Layer`, and it's a library that provides a simple way to create graphics and sound in a program. And, it's usually what we might use on a non-Linux Host to draw a local window for te guest, though it works on Linux too.
+
+  - `gtk` is the default option. GTK stands for GNOME Toolkit, and it's a library that provides a way to create graphical user interfaces in a program. It's what we might use on a Linux Host to draw a local window for the guest.
+
+  While it is the default and, we actually don't need to type it out, it's good to know what it is.
+
+- `gtk` and `sdl` are good choices for local guests to draw the guest window with OpenGL, through the `gl=on` or `gl=off` parametetee. OpenGL supports a variety of Video Card vendor.
+
+- `vnc` is a good choice for remote guests.
+
+- `-vga` is important in determining what video card guest has. VGA stands for Video Graphic Adapter. The default is standard VGA, with a supported resolution of upto `1920 * 1080`. This adapter doesn't have a lot of fancy features or a lot of memeory, but it's widely supported.
+
+  We will also discuss about the `virtio` option though. With KVM on linux, we can use paravirtualized video adapter through virtio. This device offers good performance, but it requires a guest to have virtio drivers installed in order to take full advantage of the device.
+
+  If you are using a graphics heavy host, and a local guest display , `virtio` is probably the best choice.
+
+  If you just need a screen to see what's going on, standard VGA is probably fine.
+
+- Examples:
+
+    ```shell
+    qemu-system-x86_64 \
+    -enable-kvm \
+    -cpu host \
+    -smp 4 \
+    -m 8G \
+    -display sdl \
+    -vga virtio
+    -k en-us \
+    -usbdevice tablet \
+    -drive file=disk_name.qcow2,if=virtio \
+    -monitor stdio
+    ```
+
+    <code> `virtio` works just fine with the GTK Display, but like we mentioned, GTK gets a bit weird with scaling. </code>
+
+    It's always good to turn of your machine, if you are using a local video mode.
+
+### Trobulshooting Tip: Black Screen
+
+- If you're modifying graphics and display settings, and guest starts up to a black or grey screen, it may be the case that the resolution is too high for the current display adapter.
+
+- `1024*768` or any lower resolution is a safe starting point, and we can increase it from there.
+
+- The display type and adapter we you will use will be determined by what the guest is intended to do.
