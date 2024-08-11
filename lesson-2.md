@@ -242,3 +242,49 @@
     ```shell
     cp disk_name1.qcow2 disk_name2.qcow2
     ```
+
+## Control and Debug a guest with QEMU Monitor
+
+- One feature of QEMU is it's text based console or monitor. instead of starting a guest and have nothing happen in our terminal, we can instead connect the monitor console to it with the option `-monitor stdio`.
+
+    ```shell
+    qemu-system-x86_64 \
+    -enable-kvm \
+    -cpu host \
+    -smp 4 \
+    -m 8G \
+    -k en-us \
+    -vnc :0 \
+    -usbdevice tablet \
+    -drive file=disk_name.qcow2,if=virtio \
+    -monitor stdio
+    ```
+
+- Now, we have a little command line interface available here, that we can use to do all sorts of useful things like add and, remove devices from the guest, pause and resume it, and shut it down by sending various control signals.
+
+- The monitor also let's us deep dive into debugging a guest including things like inspecting a guest's memory contents.
+
+- For example, we can change the vnc password for the guest, if we're using one with the command `change vnc password`.
+
+    Example:
+
+    ```shell
+    qemu-system-x86_64 \
+    -enable-kvm \
+    -cpu host \
+    -smp 4 \
+    -m 8G \
+    -k en-us \
+    -vnc : 0, password=on  \
+    -usbdevice tablet \
+    -drive file=disk_name.qcow2,if=virtio \
+    -monitor stdio
+    ```
+
+    This is nessecary to set passoword for use with a MacOS built-in VNC Viewer because that software won't connect to our guest's VNC interface without a password.
+
+    In order to set a password we'll need to tell QEMU tho use a VNC Password with an additional parameter `password=on` on the VNC option.
+
+- `system_powerdown` is a command that we can use to shut down the guest, and it's the same as pressing the power button on a physical computer. It sends ACPI power down signal instead of just ending it's process, and terminating it abrutly.
+
+- The Monitor is pretty useful specially when customizing guest's configuration because it often saves me the time of finding a VNC Window, and powering off the guest to change a configuration option.
