@@ -166,3 +166,79 @@
 - Because the QEMU command runs in, and takes over a  shell session , we need to be careful about closing terminals or disconnecting SSH Sesions when running the guests.
 
 - We can run `temux` or `screen` to keep the session alive, or we can run the command in the background with `&` at the end of the command. So, if the connection is lost, the command will keep running, and the terminal isn't killed abruptly.
+
+## Installing a Guest OS
+
+- Our Guest is botting up, so let's connect to it and see what's going on.
+- To access, we will open a VNC Viewer. Put the address of the QEMU host and the port number we specified in the command, and press enter to connect.
+
+    ![](./imgs/Screenshot%202024-08-11%20at%203.38.48 PM.png)
+
+- The VNC Session sends the mouse and keyboard activity within the VNC Viewer Window to the guest so we can interact with it just we would interact with a regular computer.
+- Now, Intall the Ubuntu OS as needed.
+
+    ![](./imgs/Screenshot%202024-08-11%20at%203.43.03 PM.png)
+
+- Once the installation is done, we will shut down the system here. Ordinarilly, We would restart a new installed system but right now, we can't remove the installer disk image without powering the guest down.
+
+- We will close this prompt and wait for the guest to boot into the live CD Environment. Than, we click on the top right choose > power off/logout > power off.
+
+- We need to remove the disk image otherwise the guest will start right back up in the installer, and there's no point in that we already installed.
+
+- Back, in the terminal, once the guest is shutdown we recall our previous command that we used to create the VM, and edit it.
+
+    ```shell
+    qemu-system-x86_64 \
+    -enable-kvm \
+    -cpu host \
+    -smp 4 \
+    -m 8G \
+    -k en-us \
+    -vnc :0 \
+    -usbdevice tablet \
+    -drive file=disk_name.qcow2,if=virtio \
+    ```
+
+    <code>We will remove the `-cdrom` option and the `-boot` option.</code>
+
+    We can also switch the boot to `c` for the first hard drive instead of `d` for the Optical drive, but than if this disk image ever moves, we will get an error even though we will not be using it.
+
+    And, we don't need these unused options cluttering up my command. We will run this modified command and the guest will boot.
+
+- Once the guest is booted, we will dismiss the startup screens, and there you have the Ubuntu Desktop running as a QMU Guest with KVM, and we can use it just like a regular computer.
+
+    ![](./imgs/Selection_692-1.png)
+
+- We will open up the terminal here, and use the command `hostnamectl`, and we can use it to see what system knows about how's it running.
+
+    ![](./imgs/Screenshot%202024-08-11%20at%204.02.17 PM.png)
+
+    Here we can clearly see it's showing KVM being used.
+
+- And, if we run `lscpu`, and we can see that the guest processor thinks it's processor is Xeon Silver 4108, which is what the host actually has, and we can also see the 4 cores we specified here.
+
+    ![](./imgs/Screenshot%202024-08-11%20at%204.04.31 PM.png)
+
+- We will run `lspci`, and that will show us the emulated PCI devices that the guest has including the various mainboard parts, the virtio storgae device, and intel network adapter.
+
+    ![](./imgs/Screenshot%202024-08-11%20at%204.08.23 PM.png)
+
+- We can also run `lsusb`, and that will show us the USB devices that the guest has, including the tablet device that we added to make the mouse work better.
+
+  And, when we reun the `lsmem` command, we can see the memory that the guest has, and we can see that it's 8GB, which is what we specified.
+
+  ![](./imgs/Screenshot%202024-08-11%20at%204.10.27 PM.png)
+
+- One thing you might notice is that the display is not very good, we can improve the display a little bit by changing the resolution, but the emulated video adapter is let's say rather basic, and it has only 16MB of video RAM. So, that prevents us from having really smooth graphics or high resolutions.
+
+  VNC limits us as well because it provides quite a less video bandwidth than a real video connection like HDMI or Display Port would have.
+
+  This kind of basic display is fine for administrative tasks, but it's not nice to do a lot of work in.
+
+  QEMU does provide other emulated video adapters, and we change their parameters to a degree or if we're feeling very adventurous, and have a compatible video card, we can pass through a video card to the guest. So, it can use the card, and a real monitor.
+
+- We can make the copy of a disk image using the command:
+
+    ```shell
+    cp disk_name1.qcow2 disk_name2.qcow2
+    ```
