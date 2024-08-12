@@ -358,4 +358,3 @@ This guest is all alone in a world of it's own, atleast as far as networking is 
   
   And now I'll switch back to my guests and clear out their manual address information. I'll set them back to automatic. After a moment, We can see that the guest has been given an address in my DHCP range. And We can still communicate with the host at 10.10.10.1 as well. And from the host, I can access the guests by their private IP addresses too. But this is still a host only network and doesn't allow access beyond the host. We just don't have to worry about manually setting IPs with DHCP turned on.
 
-- 
