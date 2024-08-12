@@ -358,3 +358,23 @@ This guest is all alone in a world of it's own, atleast as far as networking is 
   
   And now I'll switch back to my guests and clear out their manual address information. I'll set them back to automatic. After a moment, We can see that the guest has been given an address in my DHCP range. And We can still communicate with the host at 10.10.10.1 as well. And from the host, I can access the guests by their private IP addresses too. But this is still a host only network and doesn't allow access beyond the host. We just don't have to worry about manually setting IPs with DHCP turned on.
 
+## Creating a NAT Network
+
+- We can provide our host-only network guests access to the outside world by configuring our host as a router.
+- Doing so will convert our host-only network into a NAT network using the host to provide packet forwarding and network address translation for the guests in the private network.
+- So, they'll have access to the host's network and to the internet but they'll still be protected behind the host's firewall.
+
+- First on the host, we need to tell it to forward packets. I'll do that temporarily by setting the kernel parameter for ipv4 forwarding. You could also configure ipv6 if your setup requires that. 
+
+- We'll write:
+
+  ```shell
+  # This must be done on the host, and will be gone once the host is restarted.
+  > sudo sysctl -w net.ipv4.ip_forward=1
+  > sudo iptables -A FORWARD -i br0 -j ACCEPT
+  > sudo iptables -t nat -I POSTROUTING -s 10.10.10.1/24 -j MASQUERADE
+  ```
+
+  Remember that these values will go away when the host is restarted so you might want to put them into a script or use your platform tools to make the changes permanent.
+  
+  Back here in my guest, We'll open a web browser. And now I can browse the web. My forwarding is working with the host acting as a router and DNS server for the guests on this NAT network. We'll close out of here and I'll shut down my guests.
