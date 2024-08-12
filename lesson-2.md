@@ -515,3 +515,92 @@
 
 - This built in `9p` file system gives us an easy way of creating a shared folder accessible by the host and one or more guests. Linux has support for this already built-in and other OS may need to have support added through third party drivers.
 
+## Using Host USB Device on a Guest
+
+- QEMU allows us to pass or attach some physical devices to the guest, and one of the most common devices to attach is a USB device.
+- Some of these like Video Cards require some significant and brand-specific work, but other like USB, are fairly straigh-forward.
+- To pass a USB Device through from the host to the guest, we will first give the host an emulated USB Hub, and then we'll tell QEMU to map a host's USB Device through to the guest's USB Hub. Than, it's upto the guest to use the device.
+- A guest would need to have a driver, for instance, in the case the device isn't supported directly by the Guest OS. When we pass a device to the guest, that will have the sole control of it.
+- We can't share a webcam for example, with both the host and the guest at the same time. Only one system can use the device at a given point in time.
+- QEMU can emulate three types of USB Controllers: `USB 1.1`, `USB 2.0` and `USB 3.0`. The `USB 1.1` is the most compatible, but the slowest, and the `USB 3.0` is the fastest, but the least compatible.
+- We have already seen the `-usbdevice` option, which while it's convenient only tells QEMU to use `USB 1.1`, that's fine for a mouse and keyboard like, we have been using with the `tablet` option, but it's not great for most other devices.
+- For modern systems, it's usually a good idea to use `USB 3.0` for most devices, which is called xHCI Interface type, where xHCI stands for `eXtensible Host Controller Interface`, because it supports all three USB Standards. And, often it's really nice to use a fast USB 3 device where we can.
+- But, as anything we pass into the guest, the guest needs to support `USB 3` and this interface, in orer for it to work.
+- Let's start on working on a command to pass a device to the guest:
+
+    ```shell
+    > qemu-system-x86_64 \
+        -enable-kvm \
+        -cpu host \
+        -smp 4 \
+        -m 8G \
+        -display
+        -k en-us \
+        -usbdevice tablet \
+        -drive file=disk_name.qcow2,if=virtio \
+        -monitor stdio \
+        -device qemu-xhci,id=xhci \ # xhci is the name we will use to refer to this particular host controller
+        -device usb-host, bus=xhci.0, vendorid=0xXXXX productid=0xYYYY
+    ```
+
+    Having defined this host device, we are ready to plug a device into it. But, to do that we need to know, how to refer a device.
+
+    Here, we will run a command `lsusb`. This will list the usb devices on the host.
+
+    ![](./imgs/Screenshot%202024-08-12%20at%205.32.21 AM.png)
+
+    So, here we can see we have a webcam attached to BUS 001 as Device 005. Because, I want the camera to be available to the guest, not just whatever is plugged into whichever USB Port, we will use the vendor and product ID that we got from output of `lsusb` command. These IDs are heaxadecimal numbers so we need to signify `0x` in front of them to tell QEMU to interpret them appropriately.
+
+    it can also be useful to have a USB port dedicated to a guest.
+
+    ```shell
+    # This will attach a device by its vendor and product ID to the guest
+    -device usb-host, bus=xhci.0, vendorid=0xXXXX productid=0xYYYY
+    
+    # This will attach a host USB port to the guest
+    -device usb-host, bus=xhci.0,hostbus=1, hostport=5
+    ```
+
+    When we specify which guest bus to connect, we'll use a dot notation to set which host controller to use, and in this case that will be zero, the first host controller.
+
+    We can add more devices to the guest as well, either by using the `-device` option again with the same bus identifier, or by adding another bus with a different name, and adding devices to that.
+
+    We can build out a whole architecture of USB Devices should we need to do so.
+
+- One thing to note about using devices with guests in this way is that, they will need to either use superuser previllages to run the command, so we can take control of the device away from the host, or we need to setup custom udev rules that give whatever user  we're using control of specific hardware.
+
+- You might have noticed that we have USB disk plugged into my host. Let's run `lsusb` again, and we can find it.
+- To pass this to the guest, we want to first make sure that the guest doesn't have it mounted.
+- To check out mounted file systems, we can use the `df` command.
+- Here, we can see that the Flash drive is mounted.
+
+    ![](./imgs/Screenshot%202024-08-12%20at%2010.57.44 AM.png)
+
+- So, to unmount it, we will use the command:
+
+    ```shell
+    sudo umount /media/username/usb_name
+    ```
+
+- Now, we can pass the USB Drive to the guest, and for this we will use the previous command, and edit it just a little bit.
+
+    ```shell
+    > qemu-system-x86_64 \
+        -enable-kvm \
+        -cpu host \
+        -smp 4 \
+        -m 8G \
+        -display
+        -k en-us \
+        -usbdevice tablet \
+        -drive file=disk_name.qcow2,if=virtio \
+        -monitor stdio \
+        -device qemu-xhci,id=xhci \ # xhci is the name we will use to refer to this particular host controller
+        -device usb-host, bus=xhci.0, vendorid=0xXXXX productid=0xYYYY
+    ```
+
+    If we unplug the USB Device from the host, and than start up the guest. The Guest start ups just fine, but there will be no flash drive.
+
+    Once, we plug it plug it up again, even though the device had attached after the guest is booted, it's like we just plugged the device directly into the guest. QEMU is still watching for the vendor and product ID, and when it becomes available on the host, it passes the device through the guest.
+
+    A drawback of this is that for, the time when the guest is running, QEMU has control of any passthrough devices, so we can't remove it or eject it from the guest, and use it on the host, while the guest is still running.
