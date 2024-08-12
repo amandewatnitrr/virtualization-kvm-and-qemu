@@ -604,3 +604,7 @@
     Once, we plug it plug it up again, even though the device had attached after the guest is booted, it's like we just plugged the device directly into the guest. QEMU is still watching for the vendor and product ID, and when it becomes available on the host, it passes the device through the guest.
 
     A drawback of this is that for, the time when the guest is running, QEMU has control of any passthrough devices, so we can't remove it or eject it from the guest, and use it on the host, while the guest is still running.
+
+    We need to shutdown the guest, and then, the control of the device goes back to the host.
+
+<hr/>
