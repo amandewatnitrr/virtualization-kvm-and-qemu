@@ -196,3 +196,59 @@ We now check the IP Address, and see that we don't even have an ethernet adpater
 ![](./imgs/Screenshot%202024-08-12%20at%201.42.13 PM.png)
 
 This guest is all alone in a world of it's own, atleast as far as networking is concerned. We can however still attach a network usb adapter and, establish connectivity for the guest.
+
+## Bridged Network
+
+- We can use a different networking mode to build more complex network setups and that involves network bridges.
+
+- A network bridge allows two or more devices or networks to communicate with each other. Normally, we find bridges inside of routers or switches, allowing those devices to send traffic between our computers and the broader network. But on the Linux system, we can create a virtual bridge that our QEMU guests can connect to in order to communicate.
+
+  When we're using a bridge set up, our guest network interfaces are represented on the host as TAPs, a term for a virtual network adapter that we can plug into our bridge.
+  
+  Combining a bridge and two or more TAPs, we effectively build a virtual ethernet network we can configure however we like. With QEMU, we create a bridge on the host and then configure our guests to connect to it. We can use this model to create two similar, but functionally different, kinds of virtual network .
+  
+  One kind is a Private Bridged Network, where we connect guests to our bridge and they operate in a private network environment. We may choose to provide services, like DHCP, within this network, with some additional setup and we might even choose to configure our host to act as a router, to provide the guests with network access.
+  
+  The other kind of network is a Public Bridged Network, where we add one of the host's ethernet interfaces to the bridge along with the guest's, effectively extending the host's network inside our private network, so that the guests function as regular clients of that network.
+  
+  If we're feeling very industrious, we can mix and match these modes, as well. For example, bridging one guest to the host's network and adding another interface to it, so it can be configured to provide routing and other services to a second private bridged network of guests. We're going to keep things fairly straightforward here, though.
+  
+  Working with bridge networking requires a bridge and that's something we have to set up on the host itself. The bridge device is entirely separate from QEMU. To create a bridge, We'll use the ip utility here on Ubuntu, and We'll write, `sudo ip link add br0 type bridge`. This creates a bridge called `br0`.
+  
+  Then, We'll bring the bridge up, with `sudo ip link set br0 up`. The name can be anything you like. br0 is a bit of a convention and it's short, so I'll use it here. We can also create more than one bridge should our architecture require that. This bridge, created in this way, won't persist through a reboot.
+  
+  We can use our distribution-specific network configuration tools, like Network Manager, netplan, ifupdown, and so on, to make this bridge permanent. Or we can put these commands in a script. 
+  
+  Once our bridge is created, we'll need to attach devices to it. There's two paths to doing this. One is to manually create and manage individual TAP interfaces on the host and pass them to each guest by name. This shows how we might do that for two guests that will share a private network. 
+  
+  ```shell
+  # create tap interfaces tap0 and tap1
+  ip tuntap add tap0 mode tap && ip tuntap add tap1 mode tap
+
+  # bring up tap interfaces tap0 and tap1
+  ip link set tap0 up promisc on && ip link set tap1 up promisc on
+
+  # connect tap interfaces tap0 and tap1 to the bridge br0
+  ip link set tap0 master br0 && ip link set tap1 master br0
+
+  # start two guests using tap0 and tap1 (remember to use two different disk images)
+  qemu-system-x86_64 ... -netdev tap,id=t0,ifname=tap0,script=no,downscript=no -device e1000,netdev=t0,id=nic0
+
+  qemu-system-x86_64 ... -netdev tap,id=t1,ifname=tap1,script=no,downscript=no -device e1000,netdev=t1,id=nic1
+  ```
+
+  But, as you can see, that's a lot of work. We could put this into a script or into our host configuration so it all gets set up automatically. 
+  
+  But whenever we want to add another guest, we'd need to go through the TAP creation process for that new guest. So helpfully, there's a tool called QEMU Bridge Helper that does the work for us. It creates and manages the TAP interfaces for guests that use them and runs the `qemu-ifup` and `qemu-ifdown` scripts in the host's etc directory to set the TAP interfaces up and down when the guest boots and is shut off. This lets us add guests easily.
+  
+  Using the helper takes a little bit of setup, though. First, we need to change the permission mode of the helper tool itself to add the set UID bit to it. Alright, `sudo chmod u+s /usr/lib/qemu/qemu-bridge-helper`. This step allows our user to invoke the helper without requiring super user privileges to run the QEMU target itself.
+  
+  Running QEMU as the super user is generally discouraged, but in order to manipulate the network interfaces on the host, we need super user privileges and that's where this helper tool comes in. It's able to act as the super user to make those changes to create and manage the TAP interfaces in a way that doesn't require individual users to be empowered with root access. The helper needs a little bit of information, though, about which bridges it's allowed to work with. 
+  
+  We have just one, br0, and to tell the software that users can use that bridge, We'll create a configuration file. We'll write:
+
+  ```shell 
+  vi /etc/qemu/bridge.conf
+  ```
+  
+  I'll move into insertion mode and I'll write, allow br0 and I'll save the file, with escape, colon, wq. We created this file as root, so it's owned by root, but other users will be able to read it. This bridge helper configuration will persist across reboots, but the bridge itself won't, unless we tell the system to set it up in the host's network configuration. Now, we're ready to use our bridge and the helper to start QEMU guests that participate in the same network.
