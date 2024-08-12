@@ -169,3 +169,30 @@
   We'll accept the key. We'll type in the password, and now We're connected to the guest. Cool, We'll disconnect and close this pane. I'll switch to my browser and open up my host on port 8080 and there's the web server running on the guest. It's common to start up a guest with only port 22 open because nearly any other network service can be tunneled over SSH and it can be used for administration and to send files back and forth as well.
   
   But depending on your requirements, you may need other specific ports opened up to allow connectivity to the guest using the host's address or you may need a different solution as we'll explore shortly.
+
+## Removing Network Connectivity
+
+- Sometimes it's useful to have a guest with no network access. We might use this setup for security work like malware analysis, where we don't want any network communication happening. To tell QEMU not to provide a network interface to a guest, we'll use the option -nic none.
+
+```shell
+qemu-system-x86_64 \
+  -enable-kvm \
+  -cpu host \
+  -smp 4 \
+  -m 8G \
+  -k en-us \
+  -display sdl \
+  -vga virtio \
+  -usbdevice tablet \
+  -drive file=disk1.qcow2,if=virtio \
+  -monitor stdio \
+  -nic none
+```
+
+We now check the IP Address, and see that we don't even have an ethernet adpater. We can also double check that with `lspci`.
+
+![](./imgs/Screenshot%202024-08-12%20at%201.41.46 PM.png)
+
+![](./imgs/Screenshot%202024-08-12%20at%201.42.13 PM.png)
+
+This guest is all alone in a world of it's own, atleast as far as networking is concerned. We can however still attach a network usb adapter and, establish connectivity for the guest.
