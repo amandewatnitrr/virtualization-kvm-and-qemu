@@ -254,6 +254,76 @@ This guest is all alone in a world of it's own, atleast as far as networking is 
   > ls -l /etc/qemu
   ```
 
-  Move into insertion mode and write, `allow br0` and save the file, with escape, `:wq`. We created this file as root, so it's owned by root, but other users will be able to read it. This bridge helper configuration will persist across reboots, but the bridge itself won't, unless we tell the system to set it up in the host's network configuration. 
+  Move into insertion mode and write, `allow br0` and save the file, with escape, `:wq`. We created this file as root, so it's owned by root, but other users will be able to read it. This bridge helper configuration will persist across reboots, but the bridge itself won't, unless we tell the system to set it up in the host's network configuration.
   
   Now, we're ready to use our bridge and the helper to start QEMU guests that participate in the same network.
+
+
+## Creating a Private Network
+
+- To create a private network, as with all of the other bridge related network architectures, we can use qemu's netdev and device options or the nic option.
+
+  Let's start at using the `-netdev` and device options for this guest. For the `-netdev` backend, We'll tell qemu to use a bridge. Then We'll say which bridge to use. In my case, that's `br0`. Then we'll provide an id, a name to call that backend, in this case net1. In the device section, We'll use para virtualization and say that this device should attach to the netdev backend with the id net1. Remember that this name can be more descriptive if you need it to be.
+
+    ```shell
+    qemu-system-x86_64 \
+    -enable-kvm \
+    -cpu host \
+    -smp 4 \
+    -m 8G \
+    -k en-us \
+    -display sdl \
+    -vga virtio \
+    -usbdevice tablet \
+    -drive file=disk1.qcow2,if=virtio \
+    -monitor stdio \
+    -netdev bridge,br=br0,id=net1 \
+    -device virtio-net,netdev=net1
+    ```
+
+  But there's one important thing we need to be aware of. Our second guest is going to be joining the same network as the first guest, and qemu assigns the same MAC address to each guest's first network interface, so our two guests will both have the same MAC address and well, that's a problem if we want them to communicate.
+
+  For my second guest, We'll specify a different MAC address than the default. In this case, just one digit higher, ending with 57 instead of 56. We could use `-netdev` and `-device` for the second guest too but let's use the `-nic` option instead. We'll write a command very similar to my first guests but notice that we're using the `-nic` option instead of `-netdev` and `-device`.
+
+  Each additional guest we add will need to have a unique MAC. We can increment the default one for each guest or use other MAC addresses. In the past, We've used this generator website, `macaddress.io` but you could come up with your own script or system of generating valid unicast locally administered addresses.
+
+  ```shell
+  qemu-system-x86_64 \
+  -enable-kvm \
+  -cpu host \
+  -smp 4 \
+  -m 8G \
+  -k en-us \
+  -display sdl \
+  -vga virtio \
+  -usbdevice tablet \
+  -drive file=disk2.qcow2,if=virtio \
+  -monitor stdio \
+  -nic bridge,br=br0,mac=52:54:00:12:34:57,model=virtio-net-pci
+  ```
+  
+  Okay, our two guests are up and running, and are virtually plugged into the same bridge. We can see the bridge and our tap devices on the host with a command `ip link`. Here's the bridge, tap0 and tap1.
+  
+    ![](./imgs/Screenshot%202024-08-12%20at%202.42.45 PM.png)
+
+  The bridge helper set these up for us but we're not quite done yet. Within this private bridge architecture we just set up, there's only two systems. There's nothing providing DHCP information to them and they don't have useful IP addresses. 
+  
+  So in order for the guests to be able to communicate with each other, we'll need to provide them addresses. We'll move into each guest's settings here and assign addresses within a private range.
+  
+  For our first guest, We'll change IPv4 to manual and We'll give it the address 10.10.10.2.
+
+  ![](./imgs/Screenshot%202024-08-12%20at%202.46.07 PM.png)
+  
+  Same way we'll go into its settings of second guest and give it the manual address 10.10.10.3. We'll toggle that connection off and on and see it's connected. 
+  
+  Back here in my first guest, We'll open up the terminal and We'll try to communicate with that second guest, using the command:
+
+  ```shell
+  > ping 10.10.10.3
+  ```
+
+  ![](./imgs/Screenshot%202024-08-12%20at%202.48.45 PM.png)
+  
+  And that works. With this configuration I'll only be able to communicate between these guests but not with the host or any network outside of this one.
+  
+  I could add other guests to this private network the same way, the bridge helper will connect them to the bridge, but I'll need to assign them IP addresses in order for them to communicate with their peers.
