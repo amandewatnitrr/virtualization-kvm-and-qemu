@@ -327,3 +327,35 @@ This guest is all alone in a world of it's own, atleast as far as networking is 
   And that works. With this configuration I'll only be able to communicate between these guests but not with the host or any network outside of this one.
   
   I could add other guests to this private network the same way, the bridge helper will connect them to the bridge, but I'll need to assign them IP addresses in order for them to communicate with their peers.
+
+## Creating a Host-Only Network
+
+- Another useful networks topology for QEMU guests is called a host-only network, which is like a private network with no outside connectivity except that the host participates in the private network. This architecture allows guests access to resources on the host, but not to reach out beyond the host to its network or the internet.
+
+- We can convert our private bridge network into a host only network by signing the bridge and address on the private network.
+
+  Here on the host We'll run the command:
+
+  ```shell
+  # This must be done on the host
+  > sudo ip address add 10.10.10.1/24 dev br0
+  ```
+  
+  To add the address 10.10.10.1 to the bridge called `br0`. And here inside my guest I can communicate with the host now. With this architecture, we can take another step and set up DHCP for the private network so we don't have to worry about manual addresses at all.
+  
+  With this configuration, any guest we add to the private network will be assigned an IP address automatically by the host. We've already assigned the bridge an IP address and the network range we want to use. So the next step is to tell the DNS mask software here on my Ubuntu host to provide DHCP service only on my bridge interface. 
+  
+  That's really important to get right because having a rogue DHCP server on your regular network will cause a bunch of problems. 
+  
+  We'll use DNS mask here on my Ubuntu host to provide a DHCP server only on the bridge interface and give it the IP range `10.10.10.2` to `10.10.10.100`. 
+  
+  ```shell
+  # This must be done on the host
+  > sudo dnsmasq --interface=br0 --bind-interfaces --dhcp-range=10.10.10.2, 10.10.10.100
+  ```
+
+  That's more than enough addresses for a network I'd need to build. 
+  
+  And now I'll switch back to my guests and clear out their manual address information. I'll set them back to automatic. After a moment, We can see that the guest has been given an address in my DHCP range. And We can still communicate with the host at 10.10.10.1 as well. And from the host, I can access the guests by their private IP addresses too. But this is still a host only network and doesn't allow access beyond the host. We just don't have to worry about manually setting IPs with DHCP turned on.
+
+- 
