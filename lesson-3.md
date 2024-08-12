@@ -247,8 +247,13 @@ This guest is all alone in a world of it's own, atleast as far as networking is 
   
   We have just one, br0, and to tell the software that users can use that bridge, We'll create a configuration file. We'll write:
 
-  ```shell 
-  vi /etc/qemu/bridge.conf
+  ```shell
+  > vi /etc/qemu/bridge.conf
+  > allow br0
+  > # Now save the file
+  > ls -l /etc/qemu
   ```
+
+  Move into insertion mode and write, `allow br0` and save the file, with escape, `:wq`. We created this file as root, so it's owned by root, but other users will be able to read it. This bridge helper configuration will persist across reboots, but the bridge itself won't, unless we tell the system to set it up in the host's network configuration. 
   
-  I'll move into insertion mode and I'll write, allow br0 and I'll save the file, with escape, colon, wq. We created this file as root, so it's owned by root, but other users will be able to read it. This bridge helper configuration will persist across reboots, but the bridge itself won't, unless we tell the system to set it up in the host's network configuration. Now, we're ready to use our bridge and the helper to start QEMU guests that participate in the same network.
+  Now, we're ready to use our bridge and the helper to start QEMU guests that participate in the same network.
