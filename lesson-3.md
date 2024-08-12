@@ -116,3 +116,56 @@
     ![](./imgs/Screenshot%202024-08-12%20at%2012.24.31 PM.png)
 
 - Next, Using either `-netdev` and `-device` or `-nic`, we can add one or more network interfaces to our guest by repeating the directives with different values, though in user mode networking those adapters are still within the protected network shared with the host.
+
+## Port Forwarding
+
+- One option available to us with User Mode networking is to expose one or more ports on the guest system through network ports on the host and connect to the guest that way.
+
+- For example, peer will forward port 22 on the guest for SSH to the hosts port 2222, where the host and peers on its network would be able to connect and access the guest.
+
+- To do that, we'd use the `hostfwd` argument to the `-nic` option which we saw a moment ago. With the `-nic` option, we'll provide the user argument to tell qemu that we want to use User Mode networking but we'll also add the host forward argument with a few parameters defining how that forwarding works.
+
+    ```shell
+    -nic user,hostfwd=protocol:hostaddr:hostport-guestaddr:guestport
+    ```
+
+    ![](./imgs/Screenshot%202024-08-12%20at%201.23.24 PM.png)
+
+- We'll connect to port 22 for SSH purposes and we can use host forward to open a port on the host and forward it to a port on the guest.
+
+  In this example, we'll use Port 2222 on the host. If we don't specify a protocol, it defaults to tcp and if we don't specify an address, it defaults to any of the host or guests available addresses.
+
+  Each host port needs to be dedicated to only one mapping and we can't use ports that are already in use.
+  
+  For example, port 22 and the host is likely already running its own SSH service and to use host port 1024 and below, we'll need super user privileges. We can also add other host forward arguments and parameters here to individually forward other ports.
+  
+  For example, if we ran a web server in addition to SSH on the guest, we could also forward port 8080 on the host to port 80 on the guest. We'll briefly install an SSH server and a web server in this guest, so we'll have something to connect to. We'll write `sudo apt update` and then We'll write `sudo apt install openssh-server apache2`. Those are installed and we won't configure these because they're just standing in for real services.
+  
+  Depending on our distro, we'll need to check our firewall too to ensure that the requisite ports 22 and 80 in this case, are open.
+
+  Now We'll shut down this guest so we can make some changes to its command. Here's the option added onto our command, and once again, create a new tmux pane with control B, C, and then we'll SSH into my guest.
+
+  ```shell
+  > qemu-system-x86_64 \
+  -enable-kvm \
+  -cpu host \
+  -smp 4 \
+  -m 8G \
+  -k en-us \
+  -display sdl \
+  -vga virtio \
+  -usbdevice tablet \
+  -drive file=disk1.qcow2,if=virtio \
+  -monitor stdio \
+  -nic user,hostfwd=::2222-:22,hostfwd=::8080-80 # nic option used here
+  ```
+  
+  We'll write ssh, my guest username at my host and specify the port 22.
+
+  ```shell
+  ssh user@localhost -oPort=2222
+  ```
+  
+  We'll accept the key. We'll type in the password, and now We're connected to the guest. Cool, We'll disconnect and close this pane. I'll switch to my browser and open up my host on port 8080 and there's the web server running on the guest. It's common to start up a guest with only port 22 open because nearly any other network service can be tunneled over SSH and it can be used for administration and to send files back and forth as well.
+  
+  But depending on your requirements, you may need other specific ports opened up to allow connectivity to the guest using the host's address or you may need a different solution as we'll explore shortly.
