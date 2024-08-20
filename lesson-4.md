@@ -51,4 +51,14 @@
 
 ## Exploring `virsh`
 
-- 
+- `virsh` allows us ti manage libvirt guests and other resources from the command line.
+- It's installed as a part of the `libvirt-clients` package. We can use `virsh` either as a command with arguments following it, or as an interactive shell.
+- We can use virsh in the interactive terminal using the command `virsh`.
+
+- Using the `list` command, we can see the running guests. `list --all` we can see all the guests.
+- We can use the `edit <guest_name/>` and open up the XML Configuration file associated with it.
+- We can find the other commands that `virsh` has using the `help` command.
+- We can exit out of this `virsh` interactive shell using the `exit` command.
+
+- We can start an existing guest domain from the command line with the command `virsh start <name_of_the_domain/>`, and we can connect to it's screen with the `virt-viewer` command, and we will see a list of guest to select from. And, there you will have the system. It's the same old VM but it's being managed and accessed with a different tool set.
+- We can power the system off safely using the command `virsh shutdown <name-of-the-domain/>` command.
