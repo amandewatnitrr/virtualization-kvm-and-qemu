@@ -378,3 +378,58 @@ This guest is all alone in a world of it's own, atleast as far as networking is 
   Remember that these values will go away when the host is restarted so you might want to put them into a script or use your platform tools to make the changes permanent.
   
   Back here in my guest, We'll open a web browser. And now I can browse the web. My forwarding is working with the host acting as a router and DNS server for the guests on this NAT network. We'll close out of here and I'll shut down my guests.
+
+## Public Virtual Bridge
+
+- The last network architecture that I'd like to show you is a public virtual bridge. This allows the guests to participate in the host's network as though they were any other member of that network.
+
+- That means that they share the address space of the host's network, and can have their addresses assigned via that network's DHCP server. No port forwarding or routing is needed to access the guest, though we need to dedicate an ethernet port on the host to this function, and it won't be able to be used to provide connectivity for the host itself. I've shut down my guests and restarted my host to clear out the temporary changes we've made so far. So, let's set up our bridge again.
+
+    ```shell
+    # This must be done on the host
+    > sudo ip link add br0 type bridge
+    > sudo ip link set br0 up
+    ```
+
+- That's the same as we saw before, but this time instead of adding an address to the bridge, we'll add one of the host's ethernet interfaces to the bridge, effectively plugging our virtual switch and its clients into the host's network. First, though, We'll run `ip a`. Here, I can see that my host has two ethernet interfaces.
+
+  This one here, `enp4s0f2`, and this one, the onboard adapter, `eno1`. I'll use this one.
+  
+  And it's important that we don't use our only network interface on the bridge, because if we do, the host will lose its network connectivity. And that can be a problem, especially on a remote host. So, don't try this at home unless you have a second active network interface, whether that's onboard, a PCI one, a USB one, or wifi.
+  
+  ```shell
+  # This must be done on the host
+  > sudo ip link set eno1 master br0
+  ```
+
+  When I run this command, it'll briefly interrupt the host's networking. So if I'm connected remotely, I'll need to reconnect.
+
+  ```shell
+  qemu-system-x86_64 \
+  -enable-kvm \
+  -cpu host \
+  -smp 4 \
+  -m 8G \
+  -k en-us \
+  -display sdl \
+  -vga virtio \
+  -usbdevice tablet \
+  -drive file=disk1.qcow2,if=virtio \
+  -monitor stdio \
+  -netdev bridge,br=br0,id=net1 \
+  -device virtio-net,netdev=net1
+  ```
+  
+  We'll take a look at the guest's network configuration. Here, I can see that it's been assigned an address on my host's network. It's picked up that network's router and DNS server. And if I open my web browser, I can see that my internet connection works. I can also access this machine from any of the other machines on the host's network, as though it were just a regular PC plugged into my lab switch. 
+  
+  If you need to remove your interface from the bridge, you can do that with the command.
+
+  ```shell
+  > sudo ip link set dev name_of_ethernet_device nomaster
+  ```
+  
+  Building up a more complex network, as you might expect, requires work on the host, specifically setting up a bridge interface to connect guests with a required infrastructure.
+  
+  You might decide to build architectures which require one guest to have multiple adapters in multiple network scenarios, like one participating in a bridge and providing routing to a different private network of guests, and so on.
+  
+  The possibilities are endless, but our time here is not. So, we're going to move on to some tools that make managing virtual machines a lot easier than the commands we've been working with so far.
